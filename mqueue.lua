@@ -1,6 +1,3 @@
-
-
-
 local __default_config = require() --TODO
 
 
@@ -35,9 +32,18 @@ end
 
 
 
+local get_cmd = {
+	pop = pop,
+	res = response,
+	sub = subscribe,
+}
 
 
-
+local put_cmd = {
+	push = push,
+	req  = request,
+	pub  = publish,		
+}
 
 
 
@@ -45,14 +51,13 @@ end
 -- declare message-queue 
 local _m_queue = {}
 
-local function _m_queue.new(port)
+local function _m_queue.new(cfg_tab)
 
 end
 
 local function _m_queue.setdefault()
 
 end
-
 
 local function _m_queue.get(config_table)
 
