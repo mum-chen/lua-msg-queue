@@ -1,23 +1,21 @@
 package.path = "..//?.lua;" ..  package.path
+local _msg = require('modele.msg')
+local _queue = require('modele.queue')
 local _socket = require("socket")
-local _msg = require()
-
 
 -- debug
 local print = require("utils.debug").p
 
-local service, in_client, out_client = nil, nil, nil
+
+-- local variable
+local queue = _queue:new()
 local host, port = "127.0.0.1", "61886"
-
-
-
-
-local _queue = {}
-
-local 
-
+local service, in_client, out_client = nil, nil, nil
 
 local function init()
+	-- get host port 
+
+	-- check prot and so on
 	service = _socket.bind(host, port)	assert(service, "null service")
 end
 
@@ -29,7 +27,7 @@ local function accept(accept_map)
 		print("null ")
 		return 
 	end
-	table.insert(q1, str)
+	queue:enqueue(obj)
 end
 
 local function send(msg)
@@ -38,18 +36,21 @@ local function send(msg)
 		print("no client")
 		return
 	end
-	
+
 	out_client:send(msg)
 	out_client:close()
 end
 
 local function dispatch(msg)
-	msg = string.format("%s \n",msg)
+	-- change msg to obj format
+
+	-- get deal function from map
 	send(msg)
 end
 
 local function msg_deal(dispatch)
-
+	local msg = queue:dequeue()	
+	dispatch(msg)
 end
 
 
@@ -61,9 +62,5 @@ local function main()
 end
 
 
-local function run()
-	init()
-	main()
-end
-
-run()
+init()
+main()

@@ -1,31 +1,33 @@
 --[[
 @desc a simple queue
 --]]
-local queue = {
+local _queue = {
 	max = 100,
 	count = 0,
 }
 
-
-function queue:new(max)
-	return {
+function _queue:new(max)
+	local _q =  {
 		first = 0,
 		last = -1,
 		max = max or self.queue
 	}
+
+	setmetatable(_q, { __index = _queue })
+
+	return _q
 end
 
-
-function queue:is_full()
-    return self.count >= self.max and true or false
+function _queue:isfull()
+    return self.count >= self.max 
 end
 
-function queue:is_empty()
-    return self.count <= 0  and true or false
+function _queue:isempty()
+    return self.count <= 0  
 end
 
-function queue:enqueue(value)
-	if self:is_full() then return nil, "full" end
+function _queue:enqueue(value)
+	if self:isfull() then return nil, "full" end
 
     local first = self.first - 1
     self.first = first
@@ -35,8 +37,8 @@ function queue:enqueue(value)
 	return true
 end
 
-function queue:dequeue()
-    if self:is_empty() then return nil, "empty" end
+function _queue:dequeue()
+    if self:isempty() then return nil, "empty" end
 
     local last = self.last
     local value = self[last]
