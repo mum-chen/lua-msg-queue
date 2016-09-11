@@ -1,36 +1,20 @@
-local __default_config = require() --TODO
+--[[
+@create 2016 09 11
 
+--]]
 
+--==================== require ============================
+-- load configuration 
+local __config = require('config') 
 
+-- 
+local _queue = require("src.queue")
 
+local __handle = require("src.handle")
 
-
-
-local function request()
-
-end
-
-local function response()
-
-end
-
-local function pop()
-
-end
-
-local function push()
-
-end
-
-local function publish()
-
-end
-
-local function subscribe()
-
-end
-
-
+--=================== declare local variable =============
+local __in_buf  = _queue:new()
+local __out_buf = _queue:new()
 
 local get_cmd = {
 	pop = pop,
@@ -44,7 +28,6 @@ local put_cmd = {
 	req  = request,
 	pub  = publish,		
 }
-
 
 
 

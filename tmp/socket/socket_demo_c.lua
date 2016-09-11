@@ -1,4 +1,3 @@
--- client.lua
 local socket = require("socket")
 host = "127.0.0.1"
 port = 8383
