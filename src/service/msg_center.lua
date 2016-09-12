@@ -19,7 +19,6 @@ local function init()
 	service = _socket.bind(host, port)	assert(service, "null service")
 end
 
-
 local function accept(accept_map)
 	in_client = service:accept()	assert(in_client,"null accept")
 	local str, status, p = in_client:receive()
@@ -31,7 +30,7 @@ local function accept(accept_map)
 end
 
 local function send(msg)
-	out_client = _socket.connect(host, 8384)	
+	out_client = _socket.connect(msg.p_ip, msg.p_port)	
 	if not out_client then
 		print("no client")
 		return
