@@ -1,6 +1,9 @@
 --[[
 @desc a simple queue
 --]]
+local MAX_ENABLE = true
+
+
 local _queue = {
 	max = 100,
 	count = 0,
@@ -10,15 +13,20 @@ function _queue:new(max)
 	local _q =  {
 		first = 0,
 		last = -1,
-		max = max or self.queue
+		max = max or self.max
 	}
 
-	setmetatable(_q, { __index = _queue })
+	MAX_ENABLE = (max > 0)
 
+	setmetatable(_q, { __index = _queue }) 
 	return _q
 end
 
 function _queue:isfull()
+	if not MAX_ENABLE then 
+		return true	
+	end
+
     return self.count >= self.max 
 end
 
