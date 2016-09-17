@@ -1,9 +1,5 @@
-package.path = "..//?.lua;" ..  package.path
-local _chain = require('model.chain')
-print = require('utils.debug').p
-
-
-
+local _chain = require('src.model.chain')
+print = require('src.utils.debug').p
 
 local function t_next()
 	local chain = _chain:new()

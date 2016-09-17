@@ -34,7 +34,7 @@ end
 --============ chain ======================================
 
 local _chain = {
-	max = 0			-- the limit of chain
+	max = 0,		-- the limit of chain
 	count = 0,		-- the total clasp in the chain
 	current = nil,	-- index to the current clasp
 }

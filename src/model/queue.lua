@@ -16,7 +16,7 @@ function _queue:new(max)
 		max = max or self.max
 	}
 
-	MAX_ENABLE = (max > 0)
+	MAX_ENABLE = (_q.max > 0)
 
 	setmetatable(_q, { __index = _queue }) 
 	return _q

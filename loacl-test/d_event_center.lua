@@ -1,7 +1,5 @@
-package.path = "..//?.lua;" ..  package.path
-local ec = require("model.event_center")
-print = require('utils.debug').p
-
+local ec = require("src.model.event_center")
+print = require('src.utils.debug').p
 
 ec.register(function ()
 	for i = 1, 9 do

@@ -1,8 +1,23 @@
-local json = require('json')
+--[[
+@auth	mum-chen
+@desc	common utils
+@date 	2016 09 11 
+@update 2016 09 16 add random function
+--]]
+--============ include and declare constant ===============
+local json = require('lib.json')
 local socket = require('socket')
--- TODO
-local function get_random_port()
+local gettime = socket.gettime
+math.randomseed(gettime())
 
+--======= public function ==================================
+local function random(n, m)
+	-- TODO check
+	return math.random(n, m)
+end
+
+local function random_port()
+	return random(1000,65535)
 end
 
 --[[
@@ -35,15 +50,14 @@ local unpack = table.unpack or function (_table)
 	return upk(_table)
 end
 
-local get_time = socket.gettime
-
 
 return {
 	unpack   = unpack,
+	random   = random,
 	readonly = readonly,
-	get_time = get_time,
+	gettime = gettime,
 	encode   = json.encode,
 	decode   = json.decode,
-	get_random_port = get_random_port
+	random_port = random_port,
 }
 

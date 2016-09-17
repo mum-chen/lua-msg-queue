@@ -1,13 +1,14 @@
 --[[
 @auth	mum-chen
 @date 	2016 09 15 
---]]
---============ include and declare constant ===============
-package.path = "..//?.lua;" ..  package.path
-local _chain = require('model.chain')
-local _cutils = require('utils.common')
-local unpack = _cutils.unpack
-local get_time = _cutils.get_time
+--]] --============ include and declare constant =============== -- load modle
+local _chain = require('src.model.chain')
+-- load utils
+local log    = require('src.utils.log')
+local cutils = require('src.utils.common')
+local unpack = cutils.unpack
+local gettime = cutils.gettime
+
 
 --============ event ======================================
 local _event = {
@@ -19,8 +20,7 @@ local _event = {
 function _event:new(thread, values)
 	assert(type(thread) == 'thread',
 		 "thread:new() #1 except a thread got " .. type(thread))
-
-	local event = {
+local event = {
 		time = 0,
 		values = values,
 		thread = thread,
@@ -35,10 +35,9 @@ function _event:resume()
 end
 
 function _event:sleep(time) 
-	self.time = get_time() + time
+	self.time = gettime() + time
 	coroutine.yield()
 end
-
 
 --============ event_center ======================================
 local event_chain = _chain:new()
@@ -58,7 +57,7 @@ local function dispatch(event)
 	assert(event, "event is necessay")
 	
 	-- check event sleep time
-	local now = get_time()
+	local now = gettime()
 	if event.time > now then
 		return true, SLEEP -- dispatch next
 	end
@@ -68,8 +67,9 @@ local function dispatch(event)
 		event_chain:remove()
 		return true, DEAD
 	end
-
-	local staus, res = event:resume()
+	
+	local result = {event:resume()} 
+	local _ = not result[1] and log.err(result)
 
 	return true, CONTINUE
 end
@@ -81,8 +81,10 @@ end
 --------- public function ---------------------------------
 function _event_center.register(func, ... )
 	assert(func, 'function is necessary in event.register')
-	local event = _event:new(coroutine.create(func),arg)
+	local thread = coroutine.create(func)
+	local event = _event:new(thread, arg)
 	event_chain:join(event)
+	return event 
 end
 
 function _event_center.sleep(time)
@@ -91,12 +93,11 @@ function _event_center.sleep(time)
 end
 
 function _event_center.run()
-	local count = 0
 	for event in event_chain:for_loop() do
-		count = count + 1
 		local res, info = dispatch(event)
 	end
 	return true
 end
+
 
 return _event_center
