@@ -7,13 +7,14 @@
 -- load tool
 local socket = require("socket")
 local config = require("config")
+local log    = require("src.utils.log")
 local cutils = require("src.utils.common")
 -- load model
 local _msg = require("src.model.msg")
 local _err = require("src.model.err")
 local _ec  = require("src.model.event_center")
 
---====== import function and declare constant ==============
+--====== import function and declare constant ============== 
 local gettime = cutils.gettime
 
 --============ declare local variable ======================
@@ -21,7 +22,7 @@ local gettime = cutils.gettime
 local service, in_client, out_client = nil, nil, nil
 local host, port = "127.0.0.1", config.server_port
 local bak_queue ,cur_queue = {}, {}
-
+local PUBLISH_INTERVAL = config.publish_interval
 
 -- ============ necessary module ===========================
 local function accept()
@@ -32,7 +33,9 @@ local function accept()
 		-- TODO add log
 		return 
 	end
-	table.insert(bak_queue, str)
+	local msg, err = _msg:tomsg(str)
+	-- TODO add log
+	table.insert(bak_queue, msg)
 end
 
 local function send(msg, str_msg)
@@ -61,19 +64,19 @@ local function send_back(msg, info)
 		))
 		return 
 	end
+	local old_msg = msg.msg
 	msg.ack, msg.seq = msg.seq, nil
 	msg.fail = info and true or nil
 	msg.msg = info or _err.SUCCESS 
 
 	local str_msg = msg:tostring() 
+	-- recover msg
+	msg.seq, msg.ack = msg.ack, nil
+	msg.msg = old_msg	
 	if not str_msg then
-		log.err({
-			tag = "send_back",
-			msg = msg,
-		})
 		return 
 	end
-
+	
 	out_client:send(str_msg)
 	out_client:close()
 	return true
@@ -82,9 +85,8 @@ end
 ---------- msg.type =  push | req | res --------------------
 local function dispatch(msg)
 	-- tansfer msg format from string to obj
-	local obj_msg, err = _msg:tomsg(msg)
 
-	if not obj_msg then
+	if not msg then
 		log.err({"msg-center:dispatch", err})
 		return nil, "msg format err"
 	end
@@ -94,7 +96,7 @@ local function dispatch(msg)
 		return nil, _err.TIMEOUT
 	end
 
-	local res, err = send(obj_msg, msg)
+	local res, err = send(msg)
 	if not res then
 		return nil, err
 	end
@@ -125,7 +127,7 @@ function _order.sub(msg)
 	local key = combine(msg.r_ip,msg.r_port)
 	local c_key = combine(msg.l_ip,msg.l_port) 
 	-- customer's key
-	if _order[key] then
+	if not _order[key] then
 		_order[key] = {}
 	end
 
@@ -143,15 +145,17 @@ end
 
 function publish()
 	msg = pub_queue:dequeue()
-	if not msg then return nil, "null pub" end
+
+	-- null msg then publish finish
+	if not msg then return true end
 	-- timeout 
 	if msg.time < gettime() then
 		return false	
 	end
 	
-	-- nobody subscribe
 	local customers = _order.customers(msg)
 	if not customers then
+		-- nobody subscribe
 		return false
 	end	 
 
@@ -163,6 +167,8 @@ function publish()
 			customers[k] = nil
 		end
 	end
+	-- publish finish
+	return true
 end
 
 end
@@ -173,13 +179,12 @@ local function deliver(msg)
 		return nil, _err.DENY
 	end	
 
-	local msg = _msg:tomsg(msg)	
-	
 	if msg and msg.type == 'sub' then
 		_order.sub(msg)	
 		return true
 	end	
-	
+
+
 	-- msg.type = 'pub'	
 	local res, err = pub_queue:enqueue(msg)
 	if not res then 
@@ -206,7 +211,7 @@ local function msg_deal()
 		local msg = cur_queue[i]
 		local f = deal_map[msg.type] 
 		assert(f, string.format(
-			"not found function in deal_map:type=%s",
+			"not found function in deal_map,type=%s",
 		 	tostring(msg.type)))
 
 		-- deal with msg
@@ -230,7 +235,7 @@ end
 -- =========== public function =============================
 local function init()
 	service = socket.bind(host, port)	
-	service:settimeout(0.1,'b')
+	service:settimeout(1,'t')
 	-- assert(service, "null service")
 	return service and true or false
 end
@@ -248,7 +253,7 @@ local function start_server()
 	_ec.register(function()
 		while true do
 			msg_deal()
-			_ec.sleep(0.1)
+			_ec.sleep(0.3)
 		end
 	end)
 
@@ -259,7 +264,7 @@ local function start_server()
 	_ec.register(function()
 		while true do
 			if publish() then
-				_ec.sleep(2)	
+				_ec.sleep(PUBLISH_INTERVAL)	
 			end
 		end	
 	end)

@@ -8,7 +8,7 @@ return {
 timeout = 30,			
 
 -- connect timeout 
-waiting = 0.2,
+waiting = 0.3,
 -- ============= log config ==============================
 -- if set true the log msg will be print
 debug = true,
@@ -31,8 +31,11 @@ error_code = false,
 -- the sub/pub only served in msg-center now
 open_center = true,
 
--- Whether open the sub/pub module in the msg-center
+-- whether open the sub/pub module in the msg-center
 order = true,
+
+-- the publish inveral
+publish_interval = 0.5, 
 
 -- Whether the msg-center auto build. Not support now 
 auto_build = false,		
@@ -40,10 +43,8 @@ auto_build = false,
 -- default port of msg-center
 server_port = 11185,
 
--- if set false, when the port conflict the mgs-center will close
+-- if set false, when the port conflict the mgs-center will close, Not support now.
 gen_port_s = false, 
-
-
 
 -- set the max number of queue, when max not a positive number, the queue is unlimit
 max_output_queue = 0,	

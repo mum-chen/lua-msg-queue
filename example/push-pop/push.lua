@@ -2,17 +2,16 @@ local cli = require('msgcli')
 print = require('src.utils.debug').p
 
 
-cli.init("9999")
+cli.init("9998")
 local lock = true
 -- [[
 cli.send({	
-	port = '9998',
+	port = '9999',
 	type = 'push',
-	syn = false,
+	syn = true,
 	msg = {"aa"},
 	success = function(msg)
 		print(msg.msg) 
-		print("success")
 		lock = false
 	end,
 	fail = function(err)
@@ -23,7 +22,7 @@ cli.send({
 		lock = false
 		print("fail")
 	end,
-	timeout = 2,
+	timeout = 10,
 })
 --]]
 

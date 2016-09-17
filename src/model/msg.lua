@@ -91,6 +91,7 @@ function _msg:tostring()
 end
 
 function _msg:tomsg(str)
+	assert(type(str) == 'string', "expect string got " .. type(str))
 	local msg = utils.decode(str)
 	return _msg:new(msg)
 end

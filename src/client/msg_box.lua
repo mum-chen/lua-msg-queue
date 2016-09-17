@@ -2,9 +2,7 @@
 @auth	mum-chen
 @desc	a msg-center, diliver the msg.
 @date	2016 09 16
---]]
---============ include and declare constant ===============
--- load tool
+--]] --============ include and declare constant =============== -- load tool
 local socket = require("socket")
 local config = require('config')
 local log    = require('src.utils.log')
@@ -21,8 +19,7 @@ local register = _ec.register
 local gettime  = cutils.gettime
 local random_port = cutils.random_port
 local s_ip, s_port = "127.0.0.1", config.server_port 
-local TIMEOUT, CONNECT_TIMEOUT  = config.timeout, config.waiting
-
+local TIMEOUT, CONNECT_TIMEOUT = config.timeout, config.waiting
 assert(TIMEOUT and CONNECT_TIMEOUT, "not config timeout")
 --============ local variable ==============================
 local seq = 0
@@ -41,7 +38,6 @@ local send_cmd = {
 	req  = true,
 	push = true,
 }
-
 
 -- TODO will combine all the sub-map into one map, ack is a unique-key
 local ack_map = {
@@ -85,8 +81,9 @@ local function default_msg(info)
 		l_port = l_port,
 		-- remote address
 		r_ip = info.ip or '127.0.0.1',
-		r_port = info.port,
+		r_port = info.port or (info.type == 'pub' and l_port),
 	}
+
 
 	msg.seq, seq = seq, seq + 1
 	return _msg:new(msg) 
@@ -108,7 +105,6 @@ local function setmsg(msg)
 	return queue:enqueue(msg)
 end
 
--- TODO
 -- get the receive-msg with ip and port
 local function getmsg_r(info)
 	-- type tansfer 
@@ -130,9 +126,8 @@ end
 
 -- get the ack-msg with seq
 local function getmsg_a(msg)
-	local map = rec_map[msg.type]
-	local key = msg.seq
-	return map[seq]
+	local map = ack_map[msg.type]
+	return map[msg.seq]
 end
 
 -- return a function enclose with watiting-timeout
@@ -193,10 +188,11 @@ local function accept()
 	if not str then 
 		-- TODO add log
 		return 
-	end local msg, err = _msg:tomsg(str)	
+	end
+	local msg, err = _msg:tomsg(str)	
 	if not msg then 
 		-- log.(msg, err)
-		return false
+		return false, err
 	end
 	-- dispatch
 	return setmsg(msg)
@@ -219,6 +215,19 @@ local function post(msg)
 	return true
 end
 
+function _subcribe(info)
+	-- set default
+	info.ip = info.ip or "127.0.0.1"
+	info.msg = "subscribe"
+
+	local msg, err = default_msg(info)
+	assert(msg, err)
+	local res, err = post(msg)
+	if res then return res 	end
+	local _ = info.fail and info.fail(err)
+	return nil,err
+end
+
 -- return a function, execute the return value(func) will get msg
 function _receive(info)
 	local func = function()
@@ -229,13 +238,14 @@ function _receive(info)
 			return nil, "empty result"	
 		end
 		
-		local msg = info.success and info.success(msg)
+		local result = info.success and info.success(msg)
 		
 		-- case response then return the msg back
 		if info.type == 'res' then
+			msg.msg = result
 			msg.ack, msg.seq = msg.seq, nil
 			msg.l_ip, msg.r_ip = msg.r_ip, msg.l_ip
-			msg.l_port, msg.r_port = msg.r_port, msg.l_ip
+			msg.l_port, msg.r_port = msg.r_port, msg.l_port
 			assert(msg, 'respone needed a msg to return')
 			local res, err = post(msg)
 			if not res then
@@ -245,13 +255,10 @@ function _receive(info)
 		return res 
 	end
 
-	local timeout = info.timeout
 	local generator = info.syn and syn_func or asyn_func
-
 	return generator(func, info)
 end  
 
--- TODO
 function _send(info, msg)
 	-- post msg
 	local res, err = post(msg)
@@ -269,12 +276,14 @@ function _send(info, msg)
 			return nil, "empty result"	
 		end
 		
+		local msg = msg:dequeue()
 		local msg = info.success and info.success(msg)
 		
 		return res 
 	end
 
-	return info.syn and syn_func(func, info) or asyn_func(func, info)
+	local generator = info.syn and syn_func or asyn_func
+	return generator(func, info)
 end
 
 
@@ -285,7 +294,8 @@ local function init(port, waitting)
 	assert(l_port, "invalid port")
 		
 	service = socket.bind(l_ip, l_port)	
-	service:settimeout(watiting or CONNECT_TIMEOUT,"b")
+	if not service then return false	end
+	service:settimeout(watiting or CONNECT_TIMEOUT,"t")
 	if not service then
 		-- port conflict
 		return nil, "conflict" 
@@ -294,44 +304,11 @@ local function init(port, waitting)
 	-- register accept server
 	main_thread = register(function()
 		while true do 
-			accept()
-			sleep(0.01)
+			accept(); sleep(0.01)
 		end	
 	end)
 
 	return true
-end
-
---[[
-@param	ip	 	:remote ip
-@param  port 	:remote ip
-@param  type 	:pop|sub|res
-@param 	msg  	:string format
-@param  timeout	:default 30s
-@param  syn	 	:true or false, not support this version
-@param 	loop 	:expect a number, not support this version
-@param 	success :success callback
-@param 	fail 	:fail callback
-@bug	the _receive will return value twice
---]]
-local function receive(info)
-	assert(rec_cmd[info.type], 
-		"error receive type " .. tostring(info.type))
-	-- set default
-	info.syn = (info.syn == nil) or info.syn
-	info.ip = info.ip or "127.0.0.1"
-
-	-- get event for getting msg
-	local event, err = _receive(info)
-
-	-- TODO a know bug the _receive will be return value twice
-	-- temporary fix the bug in a brute way
-	if type(event) ~= 'function' then
-		return event, err
-	end
-	
-	local res, err = event()
-	return true, "finish"
 end
 
 --[[
@@ -365,8 +342,49 @@ local function send(info)
 	end
 
 	local res, err = event()
-	return true
+	return res, err
 end
+
+--[[
+@param	ip	 	:remote ip
+@param  port 	:remote ip
+@param  type 	:pop|sub|res
+@param 	msg  	:string format
+@param  timeout	:default 30s
+@param  syn	 	:true or false, not support this version
+@param 	loop 	:expect a number, not support this version
+@param 	success :success callback
+@param 	fail 	:fail callback
+@bug	the _receive will return value twice, also have the bug in send
+--]]
+local function receive(info)
+	assert(rec_cmd[info.type], 
+		"error receive type " .. tostring(info.type))
+	-- set default
+	info.syn = (info.syn == nil) or info.syn
+	info.ip = info.ip or "127.0.0.1"
+
+	-- subscribe need order first
+	if info.type == 'sub' then
+		local res, err = _subcribe(info)		
+		if not res then return nil, err end
+		-- else subscribe success
+	end
+
+	-- generator event
+	local event, err = _receive(info)
+
+	-- TODO a know bug the _receive will be return value twice
+	-- temporary fix the bug in a brute way
+	if type(event) ~= 'function' then
+		return event, err
+	end
+		
+	-- exeute event
+	local res, err = event()
+	return true, "finish"
+end
+
 
 local function server()
 	run()	

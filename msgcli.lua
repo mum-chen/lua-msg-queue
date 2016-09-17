@@ -18,7 +18,7 @@
 @param  type 	:pop|sub|res
 @param 	msg  	:string format
 @param  timeout	:default 30s
-@param  syn	 	:true or false, not support this version
+@param  syn	 	:true or false, 
 @param 	loop 	:expect a number, not support this version
 @param 	success :success callback
 @param 	fail 	:fail callback
@@ -33,8 +33,9 @@
 @param  type 	:push|pub|req
 @param 	msg  	:string format
 @param  timeout	:default 30s
-@param  syn	 	:true or false, not support this version
+@param  syn	 	:true or false, 
 @param 	loop 	:expect a number, not support this version
+			it means all the interaction is one-time routine
 @param 	success :success callback
 @param 	fail 	:fail callback
 --]]
