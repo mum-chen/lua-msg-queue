@@ -1,8 +1,8 @@
 local srv = require('src.service.msg_center')
 
 local function start()
-	srv.init()
-	srv.start()
+    srv.init()
+    srv.start()
 end
 
 
