@@ -143,7 +143,7 @@ function _order.sub(msg)
 	}
 end
 
-function publish()
+local function publish()
 	msg = pub_queue:dequeue()
 
 	-- null msg then publish finish

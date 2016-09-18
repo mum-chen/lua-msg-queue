@@ -215,7 +215,7 @@ local function post(msg)
 	return true
 end
 
-function _subcribe(info)
+local function _subcribe(info)
 	-- set default
 	info.ip = info.ip or "127.0.0.1"
 	info.msg = "subscribe"
@@ -229,7 +229,7 @@ function _subcribe(info)
 end
 
 -- return a function, execute the return value(func) will get msg
-function _receive(info)
+local function _receive(info)
 	local func = function()
 		local res = getmsg_r(info)
 		local msg = res and res:dequeue()
@@ -259,7 +259,7 @@ function _receive(info)
 	return generator(func, info)
 end  
 
-function _send(info, msg)
+local function _send(info, msg)
 	-- post msg
 	local res, err = post(msg)
 	if not res then
