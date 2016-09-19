@@ -6,7 +6,8 @@
         move the wait_timeout, syn_func, asyn_func inner the generator 
 --]] --============ include and declare constant =============== -- load tool
 local socket = require("socket")
-local config = require('config') local log    = require('src.utils.log')
+local config = require('config') 
+local log    = require('src.utils.log')
 local cutils = require('src.utils.common')
 -- load model
 local _msg   = require("src.model.msg")
