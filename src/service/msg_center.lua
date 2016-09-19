@@ -143,9 +143,9 @@ function _order.sub(msg)
     }
 end
 
-local function publish()
+-- it's declare before define in here
+function publish()
     msg = pub_queue:dequeue()
-
     -- null msg then publish finish
     if not msg then return true end
     -- timeout
@@ -154,6 +154,7 @@ local function publish()
     end
 
     local customers = _order.customers(msg)
+
     if not customers then
         -- nobody subscribe
         return false
@@ -259,7 +260,6 @@ local function start_server()
 
     -- optional module pub/sub
     if config.order and publish then
-        
     -- register subscribe server
     _ec.register(function()
         while true do

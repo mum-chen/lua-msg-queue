@@ -1,11 +1,12 @@
 --[[
 @auth   mum-chen
 @desc   a msg-center, diliver the msg.
-@date   2016 09 16
+@date   2016 09 16  create
+@update 2015 09 19  rebuild the syn|asyn function generator 
+        move the wait_timeout, syn_func, asyn_func inner the generator 
 --]] --============ include and declare constant =============== -- load tool
 local socket = require("socket")
-local config = require('config')
-local log    = require('src.utils.log')
+local config = require('config') local log    = require('src.utils.log')
 local cutils = require('src.utils.common')
 -- load model
 local _msg   = require("src.model.msg")
@@ -25,7 +26,7 @@ assert(TIMEOUT and CONNECT_TIMEOUT, "not config timeout")
 local seq = 0
 local l_ip, l_port = '127.0.0.1', nil
 local service, in_client, out_client = nil, nil, nil
-local main_thread = nil
+local accept_thread = nil
 
 local rec_cmd = {
     sub  = true,
@@ -64,6 +65,11 @@ local function gen_key(ip, port, ack)
     return string.format("%s:%s", tostring(ip), tostring(port))
 end
 
+--[[
+@desc   get send destination, 
+        if open_center == true, all the msg send to msg-center
+        now only support in open-center way
+--]]
 local function getaddress(msg)
     if config.open_center then 
         return s_ip, s_port
@@ -71,6 +77,11 @@ local function getaddress(msg)
     return msg.r_ip, msg.r_port 
 end
 
+--[[
+@desc   set default value before send
+@return success msg
+        fail    nil, err 
+--]]
 local function default_msg(info)
     local msg = {
         -- basic info
@@ -89,6 +100,7 @@ local function default_msg(info)
     return _msg:new(msg) 
 end
 
+-- call by accept
 local function setmsg(msg)
     local t = msg.type
     local map = msg.ack and ack_map[t] or rec_map[t]
@@ -130,60 +142,63 @@ local function getmsg_a(msg)
     return map[msg.seq]
 end
 
--- return a function enclose with watiting-timeout
-local function wait_timeout(deal, info)
-    local timeout = info.timeout or TIMEOUT
-    return function(f) 
-        local begin = gettime()
-        
-        while true do
-            local now = gettime()
-            if now - begin > timeout then
-                local _ =  info.fail and info.fail({_err.TIMEOUT,"v"})
-                return nil, _err.TIMEOUT
-            end
-            local res = deal() 
-            if res then return res end
-            f()
-        end
-    end
-end 
 
 --[[
-@param  time:How long the deal try again, time in second, default 1. 
-@desc   return a function, execute the return value(func) 
-        will get the msg in asynchronous way
---]]
-local function asyn_func(deal, info)
-    local f = function() sleep(time or 1) end
-
-    local func = wait_timeout(deal, info)
-
-    return function()
-        register(func, f) 
-        return true, "register success"
-    end
-end
-
---[[
-@desc   return a function, execute the return value(func) 
-        will get the msg in synchronous way
---]]
-local function syn_func(deal, info)
-    local f = function()
-         main_thread:resume()
-    end
-    local func = wait_timeout(deal, info)
-    return func(f)  
-end
-
---[[
-@desc   
-@create 
+@desc   the function return a generator function,
+        execute that will genrate a syn|asyn function in local thread
+@create 2016 09 19 
 --]]
 local function generator(deal, info)
+    -- return a function enclose with watiting-timeout
+    local function wait_timeout(deal, info)
+        local timeout = info.timeout or TIMEOUT
+        return function(f) 
+            local begin = gettime()
+            
+            -- waiting loop
+            while true do
+                local now = gettime()
+                if now - begin > timeout then
+                    -- deal with error-timeout 
+                    local _ =  info.fail and info.fail({_err.TIMEOUT,"v"})
+                    return nil, _err.TIMEOUT
+                end
+                local res = deal() 
+                if res then return res end
+                f() -- if asyn will sleep, else will call the accept-event
+            end
+        end
+    end 
 
+    --[[
+    @desc   return a function, execute the return value(func) 
+            will get the msg in asynchronous way
+    --]]
+    local function asyn_func(deal, info)
+        local f = function()
+            sleep(time or 1) 
+        end
+        local func = wait_timeout(deal, info)
+        return function()
+            register(func, f) 
+            return true, "register success"
+        end
+    end
 
+    --[[
+    @desc   return a function, execute the return value(func) 
+            will get the msg in synchronous way
+    --]]
+    local function syn_func(deal, info)
+        local f = function()
+             accept_thread:resume()
+        end
+        local func = wait_timeout(deal, info)
+        return func(f)  
+    end
+
+    local _generator = info.syn and syn_func or asyn_func
+    return _generator(deal, info)
 end
 
 -------------- deal with interaction -----------------------
@@ -224,6 +239,7 @@ local function post(msg)
     return true
 end
 
+-- TODO to add confirm ack
 local function _subcribe(info)
     -- set default
     info.ip = info.ip or "127.0.0.1"
@@ -251,11 +267,11 @@ local function _receive(info)
         
         -- case response then return the msg back
         if info.type == 'res' then
+            assert(result, 'respone needed a msg to return')
             msg.msg = result
             msg.ack, msg.seq = msg.seq, nil
             msg.l_ip, msg.r_ip = msg.r_ip, msg.l_ip
             msg.l_port, msg.r_port = msg.r_port, msg.l_port
-            assert(msg, 'respone needed a msg to return')
             local res, err = post(msg)
             if not res then
                 local _ = info.fail and info.fail(err)
@@ -264,12 +280,11 @@ local function _receive(info)
         return res 
     end
 
-    local generator = info.syn and syn_func or asyn_func
     return generator(func, info)
 end  
 
 local function _send(info, msg)
-    -- post msg
+    -- post msg before register event
     local res, err = post(msg)
     if not res then
         return function() 
@@ -291,7 +306,6 @@ local function _send(info, msg)
         return res 
     end
 
-    local generator = info.syn and syn_func or asyn_func
     return generator(func, info)
 end
 
@@ -311,7 +325,7 @@ local function init(port, waitting)
     end
 
     -- register accept server
-    main_thread = register(function()
+    accept_thread = register(function()
         while true do 
             accept(); sleep(0.01)
         end 
